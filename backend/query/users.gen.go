@@ -34,6 +34,11 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.Username = field.NewString(tableName, "username")
 	_user.DisplayName = field.NewString(tableName, "display_name")
 	_user.PasswordHash = field.NewBytes(tableName, "password_hash")
+	_user.Blog = userHasOneBlog{
+		db: db.Session(&gorm.Session{}),
+
+		RelationField: field.NewRelation("Blog", "models.Blog"),
+	}
 
 	_user.fillFieldMap()
 
@@ -51,6 +56,7 @@ type user struct {
 	Username     field.String
 	DisplayName  field.String
 	PasswordHash field.Bytes
+	Blog         userHasOneBlog
 
 	fieldMap map[string]field.Expr
 }
@@ -90,7 +96,7 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 7)
+	u.fieldMap = make(map[string]field.Expr, 8)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["created_at"] = u.CreatedAt
 	u.fieldMap["updated_at"] = u.UpdatedAt
@@ -98,6 +104,7 @@ func (u *user) fillFieldMap() {
 	u.fieldMap["username"] = u.Username
 	u.fieldMap["display_name"] = u.DisplayName
 	u.fieldMap["password_hash"] = u.PasswordHash
+
 }
 
 func (u user) clone(db *gorm.DB) user {
@@ -108,6 +115,77 @@ func (u user) clone(db *gorm.DB) user {
 func (u user) replaceDB(db *gorm.DB) user {
 	u.userDo.ReplaceDB(db)
 	return u
+}
+
+type userHasOneBlog struct {
+	db *gorm.DB
+
+	field.RelationField
+}
+
+func (a userHasOneBlog) Where(conds ...field.Expr) *userHasOneBlog {
+	if len(conds) == 0 {
+		return &a
+	}
+
+	exprs := make([]clause.Expression, 0, len(conds))
+	for _, cond := range conds {
+		exprs = append(exprs, cond.BeCond().(clause.Expression))
+	}
+	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
+	return &a
+}
+
+func (a userHasOneBlog) WithContext(ctx context.Context) *userHasOneBlog {
+	a.db = a.db.WithContext(ctx)
+	return &a
+}
+
+func (a userHasOneBlog) Session(session *gorm.Session) *userHasOneBlog {
+	a.db = a.db.Session(session)
+	return &a
+}
+
+func (a userHasOneBlog) Model(m *models.User) *userHasOneBlogTx {
+	return &userHasOneBlogTx{a.db.Model(m).Association(a.Name())}
+}
+
+type userHasOneBlogTx struct{ tx *gorm.Association }
+
+func (a userHasOneBlogTx) Find() (result *models.Blog, err error) {
+	return result, a.tx.Find(&result)
+}
+
+func (a userHasOneBlogTx) Append(values ...*models.Blog) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Append(targetValues...)
+}
+
+func (a userHasOneBlogTx) Replace(values ...*models.Blog) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Replace(targetValues...)
+}
+
+func (a userHasOneBlogTx) Delete(values ...*models.Blog) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Delete(targetValues...)
+}
+
+func (a userHasOneBlogTx) Clear() error {
+	return a.tx.Clear()
+}
+
+func (a userHasOneBlogTx) Count() int64 {
+	return a.tx.Count()
 }
 
 type userDo struct{ gen.DO }
