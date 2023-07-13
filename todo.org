@@ -1,0 +1,10 @@
+ - [ ] General
+   - [ ] Dockerfiles
+     - [ ] Local
+     - [ ] Prod
+ - [ ] Backend
+   - [ ] Users
+     - [ ] AuthRequiredMiddleware
+     - [ ] Register endpoint
+     - [ ] Logout endpoint
+     - [ ] View tests
